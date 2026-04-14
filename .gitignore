@@ -1,0 +1,33 @@
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# R output files
+*.html
+*.docx
+
+# Data files (keep CSV for this project since it's small)
+# *.csv
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+*.log
+
+# R package cache
+packrat/
+renv/

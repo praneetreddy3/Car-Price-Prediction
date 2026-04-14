@@ -1,0 +1,259 @@
+---
+title: "STAT515-Assignment6"
+author: "Sai Praneet Reddy Chinthala, Paani Narisetty"
+output: word_document
+---
+
+```{r}
+# Load necessary libraries
+library(readr)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(tidyr)
+
+# Load dataset
+car_dataset <- read.csv("C:/Users/HP/Downloads/CarPrice_Assignment.csv")
+
+# Load dictionary
+dictionary_dataset <- read_excel("C:/Users/HP/Downloads/Dictionary-carprices.xlsx", sheet = 1)
+
+# Overview of the dataset
+str(car_dataset)
+summary(car_dataset)
+
+# Preview the data
+head(car_dataset)
+
+# Check for missing values
+colSums(is.na(car_dataset))
+
+# Dimensions of the dataset
+dim(car_dataset)
+
+# Preview the data dictionary
+head(dictionary_dataset)
+
+```
+
+```{r}
+# Convert categorical variables to factors using mutate
+car_dataset <- car_dataset %>%
+  mutate(
+    symboling = as.factor(symboling),
+    CarName = as.factor(CarName),
+    fueltype = as.factor(fueltype),
+    aspiration = as.factor(aspiration),
+    doornumber = as.factor(doornumber),
+    carbody = as.factor(carbody),
+    drivewheel = as.factor(drivewheel),
+    enginelocation = as.factor(enginelocation),
+    enginetype = as.factor(enginetype),
+    cylindernumber = as.factor(cylindernumber),
+    fuelsystem = as.factor(fuelsystem)
+  )
+
+# Extract car brand from CarName (removing brand name)
+car_dataset <- car_dataset %>%
+  mutate(brand = sub(" .*", "", CarName)) %>%
+  select(-CarName) # Remove CarName column
+  
+# Check updated structure
+str(car_dataset)
+
+# Preview cleaned dataset
+head(car_dataset)
+```
+
+```{r}
+# Summary of numeric variables in the dataset
+summary(car_dataset)
+
+# Summary of categorical variables in the dataset
+summary_factors <- summarise_all(select(car_dataset, where(is.factor)), n_distinct)
+summary_factors
+```
+```{r}
+# Data Visualization
+### Visualization Section:
+
+# Histogram of Price
+ggplot(car_dataset, aes(x = price)) +
+  geom_histogram(binwidth = 1000, fill = "violet", alpha = 0.5, color = "gray") +
+  labs(title = "Distribution of Car Prices", x = "Price", y = "Frequency")
+
+# Boxplot for Price by Fuel Type
+ggplot(car_dataset, aes(x = fueltype, y = price, fill = fueltype)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Price by Fuel Type", x = "Fuel Type", y = "Price") +
+  scale_fill_manual(values = c("gas" = "blue", "diesel" = "green"))
+
+# Scatterplot: Engine Size vs Price
+ggplot(car_dataset, aes(x = enginesize, y = price)) +
+  geom_point(color = "lightblue", alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "maroon") + # Adding regression line
+  labs(title = "Engine Size vs Price", x = "Engine Size", y = "Price")
+
+# Correlation Heatmap for Numeric Variables
+numeric_vars <- car_dataset %>% select(where(is.numeric))
+cor_matrix <- cor(numeric_vars)
+
+# Create correlation heatmap
+corrplot(cor_matrix, method = "color", type = "upper", 
+         addCoef.col = "gray", number.cex = 0.5, 
+         tl.cex = 0.9, tl.col = "brown", 
+         title = "Correlation Heatmap of Numeric Variables", 
+         mar = c(1, 1, 2, 1))
+
+# 5. Boxplot for Price Outliers
+boxplot_price <- boxplot(car_dataset$price, main="Boxplot of Price", col="red", horizontal=TRUE, 
+                         outline=TRUE, las=1, xlab="Price")
+outliers <- boxplot_price$out
+outliers_data <- car_dataset[car_dataset$price %in% outliers, ]
+outliers_data # Displaying outliers
+
+```
+```{r}
+set.seed(12)
+# Fit a linear regression model with all predictors
+ model_1<- lm(price ~ ., data = car_dataset)
+
+# Summary of the initial model
+summary(model_1)
+```
+
+```{r}
+#AIC is used here for stepwise model
+library(MASS)
+model_2 <- stepAIC(initial_model, direction = "both")
+
+# Summary of the stepwise model
+summary(model_2)
+
+# Multicollinearity Check for Residual plots and displaying 4 plots together
+par(mfrow = c(2, 2)) 
+plot(model_2)
+
+# Check Variance Inflation Factor (VIF) for multicollinearity
+library(car)
+```
+
+```{r}
+# Identify high-leverage observations using leverage values
+leverages <- hatvalues(stepwise_model)
+threshold <- 2 * mean(leverages)
+high_leverage_indices <- which(leverages > threshold)
+
+# Print indices of high-leverage points
+high_leverage_indices
+
+# Remove high-leverage points from the dataset
+cleaned_data <- car_dataset[-high_leverage_indices, ]  # Exclude high-leverage points
+
+# Fit a refined linear model excluding high-leverage observations
+model_refined <- lm(price ~ car_ID + aspiration + carbody + wheelbase + 
+                      carlength + carwidth + carheight + curbweight + enginetype + 
+                      cylindernumber + enginesize + fuelsystem + boreratio + stroke + 
+                      compressionratio + peakrpm + highwaympg + brand, data = cleaned_data)
+
+# Display the summary of the updated model
+summary(model_refined)
+# Recompute the residual plots for the refined model
+par(mfrow = c(2, 2))  
+plot(model_refined)
+
+```
+
+```{r}
+# Split the dataset into training and test subsets
+# We divide the data into training (1:165) and test (166:205) sets.
+train_set <- car_dataset[1:165, ]   # First 165 rows for training
+test_set <- car_dataset[166:205, ]  # Next 40 rows for testing
+
+# Ensure the 'brand' variable is treated as a factor in both training and test sets
+train_set$brand <- factor(train_set$brand)  # Convert 'brand' to factor in training set
+test_set$brand <- factor(test_set$brand)    # Convert 'brand' to factor in test set
+
+# Handle unexpected levels in the test set
+test_set$brand <- as.character(test_set$brand)
+
+# Correct typing mistakes in the 'brand' variable in the testing  dataset
+
+test_set$brand[test_set$brand == "toyouta"] <- "toyota"   # Correcting "toyouta"
+test_set$brand[test_set$brand == "vokswagen"] <- "volkswagen" # Correcting "vokswagen"
+test_set$brand[test_set$brand == "vw"] <- "volkswagen"     # Correcting to "vw"
+
+# Handle missing values in the 'brand' variable
+test_set$brand[is.na(test_set$brand)] <- "unknown"  
+
+# The factor levels between training and test sets should be properly aligned
+# Add "unknown" to the levels of 'brand' in the training set, if not already present.
+train_set$brand <- factor(train_set$brand, levels = c(levels(train_set$brand), "unknown"))
+
+# 'brand' levels in the test set should match those in the training set 
+test_set$brand <- factor(test_set$brand, levels = levels(train_set$brand))
+
+# Building the linear model on the training set to predict 'price'.
+train_model <- lm(price ~ car_ID + aspiration + carbody + wheelbase +
+                    carlength + carwidth + carheight + curbweight +
+                    enginetype + cylindernumber + enginesize + fuelsystem +
+                    boreratio + stroke + compressionratio + peakrpm +
+                    highwaympg + brand, data = train_set)
+# summary of the model
+summary(train_model)
+
+# Checking for missing values in the test dataset
+missing_test_data <- colSums(is.na(test_set))  
+print(missing_test_data)
+
+# Identify problematic rows that result in NA predictions
+invalid_predictions <- test_set[is.na(predict(train_model, newdata = test_set)), ]
+print(invalid_predictions)
+
+# Replace missing values in 'brand' with "unknown" in the test dataset
+test_set$brand[is.na(test_set$brand)] <- "unknown"
+
+# Convert 'brand' to a factor and ensure it has the same levels as the training set
+test_set$brand <- factor(test_set$brand, levels = levels(train_set$brand))
+
+# Check the factor levels of 'brand' in the training set
+cat("Training Set Brand Levels:", levels(train_set$brand), "\n")
+
+# Verify the factor levels of 'brand' in the test set
+# Confirm the levels present in the test set after alignment.
+cat("Test Set Brand Levels:", levels(test_set$brand), "\n")
+
+# Ensure 'unknown' level is present in the training data
+if (!"unknown" %in% levels(train_set$brand)) {
+  train_set$brand <- factor(train_set$brand, levels = c(levels(train_set$brand), "unknown"))
+}
+
+```
+
+```{r}
+# Retrain the base regression model with the training dataset
+car_price_model <- lm(price ~ car_ID + aspiration + carbody + wheelbase + 
+                        carlength + carwidth + carheight + curbweight + 
+                        enginetype + cylindernumber + enginesize + 
+                        fuelsystem + boreratio + stroke + compressionratio + 
+                        peakrpm + highwaympg + brand, data = train_set)
+
+# Prepare the feature matrix and response vector for LASSO regression
+train_feature_matrix <- model.matrix(price ~ ., data = train_set)[, -1]
+train_response_vector <- train_set$price
+test_feature_matrix <- model.matrix(price ~ ., data = test_set)[, -1]
+
+# Fit the LASSO model with cross-validation to select the best regularization parameter
+lasso_regression_cv <- cv.glmnet(train_feature_matrix, train_response_vector, alpha = 1)
+optimal_lambda_value <- lasso_regression_cv$lambda.min
+
+# Predict car prices on the test data using the best lambda from LASSO
+predicted_car_prices <- predict(lasso_regression_cv, s = optimal_lambda_value, newx = test_feature_matrix)
+
+# Calculate Root Mean Squared Error (RMSE) to evaluate prediction accuracy
+actual_car_prices <- test_set$price
+model_rmse <- sqrt(mean((actual_car_prices - predicted_car_prices)^2))
+cat("Test Set RMSE for LASSO Model:", model_rmse, "\n")
+
+```
