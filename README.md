@@ -104,14 +104,14 @@ install.packages(c("readr", "readxl", "dplyr", "ggplot2",
 
 ```r
 # Open in RStudio
-# File → Open File → src/STAT515-Assignment6.Rmd
+# File → Open File → src/car_price_analysis.Rmd
 # Click "Knit" to run all chunks and generate report
 ```
 
 ### Option 2: Command Line
 
 ```bash
-Rscript -e "rmarkdown::render('src/STAT515-Assignment6.Rmd')"
+Rscript -e "rmarkdown::render('src/car_price_analysis.Rmd')"
 ```
 
 ## Repository Structure
@@ -121,12 +121,12 @@ Car-Price-Prediction/
 ├── README.md
 ├── .gitignore
 ├── src/
-│   └── STAT515-Assignment6.Rmd      # Full R analysis (EDA + modeling)
+│   └── car_price_analysis.Rmd      # Full R analysis (EDA + modeling)
 ├── data/
 │   ├── CarPrice_Assignment.csv       # Dataset (205 cars, 26 features)
 │   └── Dictionary-carprices.xlsx     # Variable definitions
 └── docs/
-    └── STAT515_Group20_Report.pdf    # Complete analysis report
+    └── technical_report.pdf    # Complete analysis report
 ```
 
 ## Visualizations
